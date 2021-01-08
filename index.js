@@ -79,12 +79,12 @@ module.exports = function(options, callback) {
     socket.on('serialport:error', function(options) {
         callback(new Error('Error opening serial port "' + options.port + '"'));
     });
-
+  
+    /*
     socket.on('serialport:read', function(data) {
         console.log((data || '').trim());
     });
-
-    /*
+  
     socket.on('serialport:write', function(data) {
         console.log((data || '').trim());
     });
