@@ -5,14 +5,14 @@
 
 //
 // TODO:
-//  - shut down timers etc on exit
-//  - treat initial keypress as standard jogging to distance, switch to smooth jogging if button held down
 //  - joystick support with proportional control
+//  - shut down timers etc on exit?
 //
 // DONE:
 //  - wait/retry when opening HID device..
 //  - need to care about 'ok' responses - sometimes the cancel command gets missed...
 //  - set speed/distance to keep smooth progress at each speed (do not travel far enough to start slowing down)
+//  - treat initial keypress as standard jogging to distance, switch to smooth jogging if button held down
 //
 
 var fs = require('fs');
@@ -82,6 +82,7 @@ var speed_100 = 0
 var jogInProgress = 0;
 var jogSpeed = 0;
 var jogDistance = 0;
+var jogCount = 0;
 
 // Speed and distance need to be matched so that repeated jogging is smooth 
 // (i.e. has not started decelerating for end of movement before the next request arrives)
@@ -105,34 +106,31 @@ function uponJoggingTimer() {
 
         if (jogSpeed && jogDistance) {
             if (xJog) {
-                jogInProgress = 1;
+                jogInProgress = responsePending = 1;
+                jogCount++;
                 if (xJog > 0) {
-                    responsePending = 1
                     socket.emit('write', options.port, "$J=G91 G21 X" + jogDistance +" F" + jogSpeed + "\n")
                 } else if (xJog < 0) {
-                    responsePending = 1
                     socket.emit('write', options.port, "$J=G91 G21 X -" + jogDistance + " F" + jogSpeed + "\n")
                 } 
             }
 
             if (yJog) {
-                jogInProgress = 1;
+                jogInProgress = responsePending = 1;
+                jogCount++;
                 if (yJog > 0) {
-                    responsePending = 1
                     socket.emit('write', options.port, "$J=G91 G21 Y" + jogDistance +" F" + jogSpeed + "\n")
                 } else if (yJog < 0) {
-                    responsePending = 1
                     socket.emit('write', options.port, "$J=G91 G21 Y -" + jogDistance + " F" + jogSpeed + "\n")
                 } 
             }
 
             if (zJog) {
-                jogInProgress = 1;
+                jogInProgress = responsePending = 1;
+                jogCount++;
                 if (zJog > 0) {
-                    responsePending = 1
                     socket.emit('write', options.port, "$J=G91 G21 Z" + jogDistance +" F" + jogSpeed + "\n")
                 } else if (zJog < 0) {
-                    responsePending = 1
                     socket.emit('write', options.port, "$J=G91 G21 Z -" + jogDistance + " F" + jogSpeed + "\n")
                 } 
             }
@@ -142,11 +140,14 @@ function uponJoggingTimer() {
     }
 
     if (jogInProgress == 1 && xJog == 0 && yJog == 0 && zJog ==0) {
-        // don't try and send the cancel command until previous command acknowleged..
+        // don't try and send a cancel command until previous command acknowleged..
         if (responsePending == 0) {
-            jogInProgress = 0
-            responsePending = 1
-            socket.emit('write', options.port, "\x85\n")
+            //only send a cancel command if repeating, lets us move a predicable amount with single button presses
+            if (jogCount > 1) {
+                responsePending = 1
+                socket.emit('write', options.port, "\x85\n")
+            }
+            jogInProgress = jogCount = 0
             }
     }
 
